@@ -1,6 +1,6 @@
 bl_info = {
-    "name": "Blender Latex",
-    "author": "Peter Johnson",
+    "name": "latex2blender",
+    "author": "Peter Johnson and George H. Seelinger",
     "version": (1, 0),
     "blender": (2, 80, 0),
     "location": "View3D > Add > Mesh > New Latex Object",
