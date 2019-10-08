@@ -1,6 +1,6 @@
 bl_info = {
     "name": "latex2blender",
-    "author": "Peter Johnson and George H. Seelinger",
+    "author": "Peter K. Johnson and George H. Seelinger",
     "version": (1, 0),
     "blender": (2, 80, 0),
     "location": "View3D > Add > Mesh",
@@ -39,8 +39,14 @@ def import_latex(self, context, latex_preamble, size, x_rotation, y_rotation, z_
 
     # Try to compile latex file and create an svg file
     try:
-        subprocess.call(["latex", "-interaction=batchmode", temp_file_name + ".tex"])
-        subprocess.call(["dvisvgm", "--no-fonts", temp_file_name + ".dvi"])
+        # Updates 'PATH' to include reference to folder containg latex and dvisvgm exectubile files.
+        # This only matters when running on MacOS. It is unnecessary for Linux and Windows.  
+        latex_exec_path = '/Library/TeX/texbin'
+        local_env = os.environ.copy()
+        local_env['PATH'] = (latex_exec_path + os.pathsep + local_env['PATH'])
+        
+        subprocess.call(["latex", "-interaction=batchmode", temp_file_name + ".tex"], env=local_env)
+        subprocess.call(["dvisvgm", "--no-fonts", temp_file_name + ".dvi"], env=local_env)
 
         objects_before_import = bpy.data.objects[:]
 
