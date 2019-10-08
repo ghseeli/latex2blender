@@ -3,7 +3,7 @@ bl_info = {
     "author": "Peter Johnson and George H. Seelinger",
     "version": (1, 0),
     "blender": (2, 80, 0),
-    "location": "View3D > Add > Mesh > New Latex Object",
+    "location": "View3D > Add > Mesh",
     "description": "Allows user to write Latex in Blender",
     "warning": "",
     "wiki_url": "",
@@ -89,11 +89,11 @@ class LatexPopup(bpy.types.Operator):
         return wm.invoke_props_dialog(self)
 
 
-# Creates a button called "Add Latex" in the "Add Mesh" list.
+# Creates a button called "latex2blender" in the "Add > Mesh" list.
 class OBJECT_OT_add_latex(Operator):
     """Create New Latex Object"""
-    bl_idname = "mesh.add_latex"
-    bl_label = "Add Latex"
+    bl_idname = "mesh.latex2blender"
+    bl_label = "latex2blender"
     bl_options = {'REGISTER', 'UNDO'}
 
     def execute(self, context):
@@ -106,7 +106,7 @@ class OBJECT_OT_add_latex(Operator):
 def add_object_button(self, context):
     self.layout.operator(
         OBJECT_OT_add_latex.bl_idname,
-        text="Add Latex",
+        text="latex2blender",
         icon='PLUGIN')
 
 
