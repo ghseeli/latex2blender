@@ -19,8 +19,8 @@ import subprocess
 import tempfile
 
 
-# Imports compiled latex code into blender as a collection of curves with specified options (latex_preamble, size, x_rotation,
-# y_rotation, z_rotation, latex_code, temp_directory)
+# Imports compiled latex code into blender as a collection of curves with specified options (latex_preamble, size, 
+# x_rotation, y_rotation, z_rotation, latex_code, temp_directory)
 def import_latex(self, context, latex_preamble, size, x_rotation, y_rotation, z_rotation, latex_code, temp_directory):
 
     # Set current directory to temp_directory
