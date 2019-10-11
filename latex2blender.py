@@ -5,7 +5,7 @@ bl_info = {
     "blender": (2, 80, 0),
     "location": "View3D > Add > Mesh",
     "description": "Allows user to write Latex in Blender",
-    "warning": "",
+    "warning": "You must have Latex installed on your computer for this addon to work.",
     "wiki_url": "",
     "category": "Add Mesh",
 }
@@ -19,7 +19,7 @@ import subprocess
 import tempfile
 
 
-# Imports entered latex code into blender as a mesh with specified options (latex_preamble, size, x_rotation,
+# Imports compiled latex code into blender as a collection of curves with specified options (latex_preamble, size, x_rotation,
 # y_rotation, z_rotation, latex_code, temp_directory)
 def import_latex(self, context, latex_preamble, size, x_rotation, y_rotation, z_rotation, latex_code, temp_directory):
 
@@ -56,7 +56,7 @@ def import_latex(self, context, latex_preamble, size, x_rotation, y_rotation, z_
         # Adjust scale and rotation
         imported_curve = [x for x in bpy.data.objects if x not in objects_before_import]
         for x in imported_curve:
-            x.scale = (50 * size, 50 * size, 50 * size)
+            x.scale = (size, size, size)
             x.rotation_euler = (math.radians(x_rotation), math.radians(y_rotation), math.radians(z_rotation))
 
     except subprocess.CalledProcessError:
@@ -78,7 +78,7 @@ class LatexPopup(bpy.types.Operator):
         \usepackage{tikz-cd}
         \usepackage{graphicx}"""
     preamble: bpy.props.StringProperty(name="Preamble", default=preamble_text)
-    text_size: bpy.props.FloatProperty(name="Size of Text", default=1.0)
+    text_size: bpy.props.FloatProperty(name="Size of Text", default=100.0)
     x_rot: bpy.props.FloatProperty(name="X Rotation", default=90.0)
     y_rot: bpy.props.FloatProperty(name="Y Rotation", default=0.0)
     z_rot: bpy.props.FloatProperty(name="Z Rotation", default=0.0)
