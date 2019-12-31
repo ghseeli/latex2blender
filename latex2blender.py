@@ -8,7 +8,7 @@ bl_info = {
     "warning": "",
     "wiki_url": "",
     "support": "COMMUNITY",
-    "category": "Text Editor"
+    "category": "Add Mesh"
 }
 
 
@@ -31,14 +31,11 @@ from bl_operators.presets import AddPresetBase
 from bl_ui.utils import PresetPanel
 
 import os
+import glob
 import subprocess
 import tempfile
 import shutil
 import math
-
-
-# Get path of latex2blender addon.
-addon_dir = bpy.utils.user_resource('SCRIPTS', "addons") + '/latex2blender/'
 
 
 # Various settings.
@@ -58,37 +55,37 @@ class Settings(PropertyGroup):
 
     x_loc: FloatProperty(
         name="X",
-        description="Set x position.",
+        description="Set x position",
         default=0.0,
     )
 
     y_loc: FloatProperty(
         name="Y",
-        description="Set y position.",
+        description="Set y position",
         default=0.0,
     )
 
     z_loc: FloatProperty(
         name="Z",
-        description="Set z position.",
+        description="Set z position",
         default=0.0,
     )
 
     x_rot: FloatProperty(
         name="X",
-        description="Set x rotation.",
+        description="Set x rotation",
         default=0.0,
     )
 
     y_rot: FloatProperty(
         name="Y",
-        description="Set y rotation.",
+        description="Set y rotation",
         default=0.0,
     )
 
     z_rot: FloatProperty(
         name="Z",
-        description="Set z rotation.",
+        description="Set z rotation",
         default=0.0,
     )
 
@@ -147,8 +144,12 @@ def import_latex(self, context, latex_code, text_scale, x_loc, y_loc, z_loc, x_r
 
         objects_before_import = bpy.data.objects[:]
 
+        bpy.ops.object.select_all(action='DESELECT')
+
         # Import svg into blender as curve
-        bpy.ops.import_curve.svg(filepath=temp_file_name + "-1.svg")
+        svg_file_list = glob.glob("*.svg")
+        svg_file_path = temp_dir + '/' + svg_file_list[0]
+        bpy.ops.import_curve.svg(filepath=svg_file_path)
 
         # Adjust scale, location, and rotation.
         imported_curve = [x for x in bpy.data.objects if x not in objects_before_import]
@@ -161,6 +162,8 @@ def import_latex(self, context, latex_code, text_scale, x_loc, y_loc, z_loc, x_r
         active_obj.scale = (100*text_scale, 100*text_scale, 100*text_scale)
         active_obj.location = (x_loc, y_loc, z_loc)
         active_obj.rotation_euler = (math.radians(x_rot), math.radians(y_rot), math.radians(z_rot))
+        bpy.ops.object.convert(target='MESH')
+
 
     except subprocess.CalledProcessError:
         ErrorMessageBox("Your preamble file or latex code has an error.", "Compilation Error")
@@ -171,14 +174,14 @@ def import_latex(self, context, latex_code, text_scale, x_loc, y_loc, z_loc, x_r
 class LATEX2BLENDER_MT_Presets(Menu):
     bl_idname = 'LATEX2BLENDER_MT_Presets'
     bl_label = 'Presets'
-    preset_subdir = 'latex/latex2blender_presets'
+    preset_subdir = 'latex2blender_presets'
     preset_operator = 'script.execute_preset'
     draw = Menu.draw_preset
 
 
 class OBJECT_OT_add_latex_preset(AddPresetBase, Operator):
     bl_idname = 'object.add_latex_preset'
-    bl_label = 'Add a new preset'
+    bl_label = 'Create a new preset with below settings'
     preset_menu = 'LATEX2BLENDER_MT_Presets'
 
     preset_defines = ['t = bpy.context.scene.my_tool']
@@ -195,7 +198,7 @@ class OBJECT_OT_add_latex_preset(AddPresetBase, Operator):
         't.preamble_path'
     ]
 
-    preset_subdir = 'latex/latex2blender_presets'
+    preset_subdir = 'latex2blender_presets'
 
 
 # Display into an existing panel
@@ -286,6 +289,12 @@ classes = (
     OBJECT_PT_latex2blender_panel
 )
 
+# Get path of blender scripts directory.
+scripts_dir = bpy.utils.user_resource('SCRIPTS')
+
+# Get path of latex2blender_preset directory
+l2b_presets = os.path.join(scripts_dir, 'presets', 'latex2blender_presets')
+
 
 def register():
     from bpy.utils import register_class
@@ -294,6 +303,10 @@ def register():
     bpy.types.Scene.my_tool = PointerProperty(type=Settings)
     OBJECT_PT_latex2blender_panel.prepend(panel_func)
 
+    # Create latex2blender_presets folder if not already created.
+    if not os.path.isdir(l2b_presets):
+        os.makedirs(l2b_presets)
+
 
 def unregister():
     from bpy.utils import unregister_class
@@ -301,6 +314,7 @@ def unregister():
         unregister_class(cls)
     del bpy.types.Scene.my_tool
     OBJECT_PT_latex2blender_panel.remove(panel_func)
+    shutil.rmtree(l2b_presets)
 
 
 if __name__ == "__main__":
