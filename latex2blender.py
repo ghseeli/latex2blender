@@ -1,131 +1,306 @@
 bl_info = {
     "name": "latex2blender",
+    "description": "Enables user to write Latex in Blender.",
     "author": "Peter K. Johnson and George H. Seelinger",
     "version": (1, 0),
     "blender": (2, 80, 0),
-    "location": "View3D > Add > Mesh",
-    "description": "Allows user to write Latex in Blender",
-    "warning": "You must have Latex installed on your computer for this addon to work.",
+    "location": "View3D > Sidebar",
+    "warning": "",
     "wiki_url": "",
-    "category": "Add Mesh",
+    "support": "COMMUNITY",
+    "category": "Text Editor"
 }
 
 
 import bpy
-from bpy.types import Operator
+
+from bpy.props import (StringProperty,
+                       BoolProperty,
+                       FloatProperty,
+                       PointerProperty
+                       )
+
+from bpy.types import (Panel,
+                       Menu,
+                       Operator,
+                       PropertyGroup
+                       )
+
+from bl_operators.presets import AddPresetBase
+
+from bl_ui.utils import PresetPanel
+
 import os
-import math
 import subprocess
 import tempfile
+import shutil
+import math
 
 
-# Imports compiled latex code into blender as a collection of curves with specified options (latex_preamble, size, 
-# x_rotation, y_rotation, z_rotation, latex_code, temp_directory)
-def import_latex(self, context, latex_preamble, size, x_rotation, y_rotation, z_rotation, latex_code, temp_directory):
+# Get path of latex2blender addon.
+addon_dir = bpy.utils.user_resource('SCRIPTS', "addons") + '/latex2blender/'
+
+
+# Various settings.
+class Settings(PropertyGroup):
+
+    latex_code: StringProperty(
+        name="Latex",
+        description="Enter Latex Code",
+        default="",
+    )
+
+    text_scale: FloatProperty(
+        name="Scale",
+        description="Set size of text",
+        default=1.0,
+    )
+
+    x_loc: FloatProperty(
+        name="X",
+        description="Set x position.",
+        default=0.0,
+    )
+
+    y_loc: FloatProperty(
+        name="Y",
+        description="Set y position.",
+        default=0.0,
+    )
+
+    z_loc: FloatProperty(
+        name="Z",
+        description="Set z position.",
+        default=0.0,
+    )
+
+    x_rot: FloatProperty(
+        name="X",
+        description="Set x rotation.",
+        default=0.0,
+    )
+
+    y_rot: FloatProperty(
+        name="Y",
+        description="Set y rotation.",
+        default=0.0,
+    )
+
+    z_rot: FloatProperty(
+        name="Z",
+        description="Set z rotation.",
+        default=0.0,
+    )
+
+    custom_preamble_bool: BoolProperty(
+        name="Use Custom Preamble",
+        description="Use a custom preamble",
+        default=False
+    )
+
+    preamble_path: StringProperty(
+        name="Preamble",
+        description="Choose a .tex file for the preamble",
+        default="",
+        subtype='FILE_PATH'
+    )
+
+
+def ErrorMessageBox(message, title):
+    def draw(self, context):
+        self.layout.label(text=message)
+    bpy.context.window_manager.popup_menu(draw, title=title, icon='ERROR')
+
+
+# Imports compiled latex code into blender given chosen settings.
+def import_latex(self, context, latex_code, text_scale, x_loc, y_loc, z_loc, x_rot, y_rot, z_rot, custom_preamble_bool,
+                 temp_dir, preamble_path=None):
 
     # Set current directory to temp_directory
-    os.chdir(temp_directory)
+    os.chdir(temp_dir)
 
-    # Create temporary latex file in temp_directory
-    temp_file_name = temp_directory + '/temp'
-    temp = open(temp_file_name + ".tex", "x")
+    # Create temp latex file with specified preamble.
+    temp_file_name = temp_dir + '/temp'
+    if custom_preamble_bool:
+        shutil.copy(preamble_path, temp_file_name + '.tex')
+        temp = open(temp_file_name + '.tex', "a")
+    else:
+        temp = open(temp_file_name + '.tex', "a")
+        default_preamble = '\\documentclass{standalone}\n\\usepackage{amssymb,amsfonts}\n\\usepackage{tikz}' \
+                           '\n\\usepackage{tikz-cd}'
+        temp.write(default_preamble)
 
-    # Add latex code to temp.tex
-    begin_doc = r"\begin{document}"
-    end_doc = r"\end{document}"
-
-    temp.write(latex_preamble+"\n"+begin_doc+"\n"+latex_code+"\n"+end_doc)
+    # Add latex code to temp.tex and close the file.
+    temp.write('\n\\begin{document}\n' + latex_code + '\n\\end{document}')
     temp.close()
 
-    # Try to compile latex file and create an svg file
+    # Try to compile temp.tex and create an svg file
     try:
-        # Updates 'PATH' to include reference to folder containg latex and dvisvgm exectubile files.
-        # This only matters when running on MacOS. It is unnecessary for Linux and Windows.  
+        # Updates 'PATH' to include reference to folder containing latex and dvisvgm executable files.
+        # This only matters when running on MacOS. It is unnecessary for Linux and Windows.
         latex_exec_path = '/Library/TeX/texbin'
         local_env = os.environ.copy()
         local_env['PATH'] = (latex_exec_path + os.pathsep + local_env['PATH'])
-        
+
         subprocess.call(["latex", "-interaction=batchmode", temp_file_name + ".tex"], env=local_env)
         subprocess.call(["dvisvgm", "--no-fonts", temp_file_name + ".dvi"], env=local_env)
 
         objects_before_import = bpy.data.objects[:]
 
         # Import svg into blender as curve
-        bpy.ops.import_curve.svg(filepath=temp_file_name + ".svg")
+        bpy.ops.import_curve.svg(filepath=temp_file_name + "-1.svg")
 
-        # Adjust scale and rotation
+        # Adjust scale, location, and rotation.
         imported_curve = [x for x in bpy.data.objects if x not in objects_before_import]
+        active_obj = imported_curve[0]
+        context.view_layer.objects.active = active_obj
         for x in imported_curve:
-            x.scale = (size, size, size)
-            x.rotation_euler = (math.radians(x_rotation), math.radians(y_rotation), math.radians(z_rotation))
+            x.select_set(True)
+        bpy.ops.object.join()
+        bpy.ops.object.origin_set(type='ORIGIN_CENTER_OF_MASS', center='MEDIAN')
+        active_obj.scale = (100*text_scale, 100*text_scale, 100*text_scale)
+        active_obj.location = (x_loc, y_loc, z_loc)
+        active_obj.rotation_euler = (math.radians(x_rot), math.radians(y_rot), math.radians(z_rot))
 
     except subprocess.CalledProcessError:
-        print("Your latex code has an error.")
+        ErrorMessageBox("Your preamble file or latex code has an error.", "Compilation Error")
     finally:
         print("Finished trying to compile latex and create an svg file.")
 
 
-# Popup menu that displays when Add Latex Button is clicked
-# Once user enters data into popup and clicks ok, import latex is called
-class LatexPopup(bpy.types.Operator):
-    bl_idname = "object.latex_popup"
-    bl_label = "Blender Latex"
+class LATEX2BLENDER_MT_Presets(Menu):
+    bl_idname = 'LATEX2BLENDER_MT_Presets'
+    bl_label = 'Presets'
+    preset_subdir = 'latex/latex2blender_presets'
+    preset_operator = 'script.execute_preset'
+    draw = Menu.draw_preset
 
-    preamble_text = r"""\documentclass{standalone}
-        \usepackage{amssymb,amsfonts}
-        \usepackage{enumerate}
-        \usepackage{tikz}
-        \usepackage{tikz-cd}
-        \usepackage{graphicx}"""
-    preamble: bpy.props.StringProperty(name="Preamble", default=preamble_text)
-    text_size: bpy.props.FloatProperty(name="Size of Text", default=100.0)
-    x_rot: bpy.props.FloatProperty(name="X Rotation", default=90.0)
-    y_rot: bpy.props.FloatProperty(name="Y Rotation", default=0.0)
-    z_rot: bpy.props.FloatProperty(name="Z Rotation", default=0.0)
-    latex_code: bpy.props.StringProperty(name="Latex Code")
+
+class OBJECT_OT_add_latex_preset(AddPresetBase, Operator):
+    bl_idname = 'object.add_latex_preset'
+    bl_label = 'Add a new preset'
+    preset_menu = 'LATEX2BLENDER_MT_Presets'
+
+    preset_defines = ['t = bpy.context.scene.my_tool']
+
+    preset_values = [
+        't.text_scale',
+        't.x_loc',
+        't.y_loc',
+        't.z_loc',
+        't.x_rot',
+        't.y_rot',
+        't.z_rot',
+        't.custom_preamble_bool',
+        't.preamble_path'
+    ]
+
+    preset_subdir = 'latex/latex2blender_presets'
+
+
+# Display into an existing panel
+def panel_func(self, context):
+    layout = self.layout
+
+    row = layout.row(align=True)
+    row.menu(LATEX2BLENDER_MT_Presets.__name__, text=LATEX2BLENDER_MT_Presets.bl_label)
+    row.operator(OBJECT_OT_add_latex_preset.bl_idname, text="", icon='ADD')
+    row.operator(OBJECT_OT_add_latex_preset.bl_idname, text="", icon='REMOVE').remove_active = True
+
+
+# Compile latex.
+class WM_OT_compile(Operator):
+    bl_idname = "wm.compile"
+    bl_label = "Compile Latex Code"
 
     def execute(self, context):
-        with tempfile.TemporaryDirectory() as t_directory:
-            import_latex(self, context, self.preamble, self.text_size, self.x_rot, self.y_rot, self.z_rot, self.latex_code,
-                         t_directory)
+        scene = context.scene
+        t = scene.my_tool
+        if t.latex_code == '' and t.custom_preamble_bool \
+                and t.preamble_path == '':
+            ErrorMessageBox("No Latex code has been entered and no preamble file has been chosen. Please enter some "
+                            "latex code and choose a .tex file for the preamble", "Multiple Errors")
+        elif t.latex_code == '':
+            ErrorMessageBox("No Latex code has been entered. Please enter some Latex code.", "Latex Code Error")
+        elif t.custom_preamble_bool and t.preamble_path == '':
+            ErrorMessageBox("No preamble file has been chosen. Please choose a file.", "Custom Preamble Error")
+        else:
+            with tempfile.TemporaryDirectory() as temp_dir:
+                import_latex(self, context, t.latex_code, t.text_scale, t.x_loc, t.y_loc, t.z_loc, t.x_rot, t.y_rot,
+                             t.z_rot, t.custom_preamble_bool, temp_dir, t.preamble_path)
         return {'FINISHED'}
 
-    def invoke(self, context, event):
-        wm = context.window_manager
-        return wm.invoke_props_dialog(self)
 
-
-# Creates a button called "latex2blender" in the "Add > Mesh" list.
-class OBJECT_OT_add_latex(Operator):
-    """Create New Latex Object"""
-    bl_idname = "mesh.latex2blender"
+class OBJECT_PT_latex2blender_panel(Panel):
+    bl_idname = "OBJECT_PT_latex2blender_panel"
     bl_label = "latex2blender"
-    bl_options = {'REGISTER', 'UNDO'}
+    bl_space_type = "VIEW_3D"
+    bl_region_type = "UI"
+    bl_category = "latex2blender"
+    bl_context = "objectmode"
 
-    def execute(self, context):
-        # bpy.utils.register_class(LatexPopup)
-        bpy.ops.object.latex_popup('INVOKE_DEFAULT')
-        return {'FINISHED'}
+    def draw(self, context):
+        layout = self.layout
+        scene = context.scene
+        latex2blender_tool = scene.my_tool
+
+        layout.prop(latex2blender_tool, "latex_code")
+
+        layout.separator()
+
+        layout.label(text="Transform Settings")
+        layout.prop(latex2blender_tool, "text_scale")
+
+        split = layout.split()
+
+        col = split.column(align=True)
+        col.label(text="Location:")
+        col.prop(latex2blender_tool, "x_loc")
+        col.prop(latex2blender_tool, "y_loc")
+        col.prop(latex2blender_tool, "z_loc")
+
+        col = split.column(align=True)
+        col.label(text="Rotation:")
+        col.prop(latex2blender_tool, "x_rot")
+        col.prop(latex2blender_tool, "y_rot")
+        col.prop(latex2blender_tool, "z_rot")
+
+        layout.separator()
+
+        layout.prop(latex2blender_tool, "custom_preamble_bool")
+        if latex2blender_tool.custom_preamble_bool:
+            layout.prop(latex2blender_tool, "preamble_path")
+
+        layout.separator()
+
+        layout.operator("wm.compile")
+
+        layout.separator()
 
 
-# Registration
-def add_object_button(self, context):
-    self.layout.operator(
-        OBJECT_OT_add_latex.bl_idname,
-        text="latex2blender",
-        icon='PLUGIN')
+classes = (
+    Settings,
+    LATEX2BLENDER_MT_Presets,
+    OBJECT_OT_add_latex_preset,
+    WM_OT_compile,
+    OBJECT_PT_latex2blender_panel
+)
 
 
 def register():
-    bpy.utils.register_class(LatexPopup)
-    bpy.utils.register_class(OBJECT_OT_add_latex)
-    bpy.types.VIEW3D_MT_mesh_add.append(add_object_button)
+    from bpy.utils import register_class
+    for cls in classes:
+        register_class(cls)
+    bpy.types.Scene.my_tool = PointerProperty(type=Settings)
+    OBJECT_PT_latex2blender_panel.prepend(panel_func)
 
 
 def unregister():
-    bpy.utils.unregister_class(LatexPopup)
-    bpy.utils.unregister_class(OBJECT_OT_add_latex)
-    bpy.types.VIEW3D_MT_mesh_add.remove(add_object_button)
+    from bpy.utils import unregister_class
+    for cls in reversed(classes):
+        unregister_class(cls)
+    del bpy.types.Scene.my_tool
+    OBJECT_PT_latex2blender_panel.remove(panel_func)
 
 
 if __name__ == "__main__":
