@@ -123,8 +123,8 @@ def import_latex(self, context, latex_code, text_scale, x_loc, y_loc, z_loc, x_r
         temp = open(temp_file_name + '.tex', "a")
     else:
         temp = open(temp_file_name + '.tex', "a")
-        default_preamble = '\\documentclass{standalone}\n\\usepackage{amssymb,amsfonts}\n\\usepackage{tikz}' \
-                           '\n\\usepackage{tikz-cd}'
+        default_preamble = '\\documentclass{amsart}\n\\usepackage{amssymb,amsfonts}\n\\usepackage{tikz}' \
+                           '\n\\usepackage{tikz-cd}\n\\pagestyle{empty}\n\\thispagestyle{empty}'
         temp.write(default_preamble)
 
     # Add latex code to temp.tex and close the file.
@@ -146,28 +146,36 @@ def import_latex(self, context, latex_code, text_scale, x_loc, y_loc, z_loc, x_r
 
         bpy.ops.object.select_all(action='DESELECT')
 
-        # Import svg into blender as curve
+
         svg_file_list = glob.glob("*.svg")
-        svg_file_path = temp_dir + '/' + svg_file_list[0]
-        bpy.ops.import_curve.svg(filepath=svg_file_path)
 
-        # Adjust scale, location, and rotation.
-        imported_curve = [x for x in bpy.data.objects if x not in objects_before_import]
-        active_obj = imported_curve[0]
-        context.view_layer.objects.active = active_obj
-        for x in imported_curve:
-            x.select_set(True)
-        bpy.ops.object.join()
-        bpy.ops.object.origin_set(type='ORIGIN_CENTER_OF_MASS', center='MEDIAN')
-        active_obj.scale = (100*text_scale, 100*text_scale, 100*text_scale)
-        active_obj.location = (x_loc, y_loc, z_loc)
-        active_obj.rotation_euler = (math.radians(x_rot), math.radians(y_rot), math.radians(z_rot))
-        bpy.ops.object.convert(target='MESH')
+        if len(svg_file_list) == 0:
+            ErrorMessageBox("Please check your latex code for errors and that latex and dvisvgm are properly "
+                            "installed. Also, if using a custom preamble, check that it is formatted correctly.",
+                            "Compilation Error")
+        else:
+            # Import svg into blender as curve
+            svg_file_path = temp_dir + '/' + svg_file_list[0]
+            bpy.ops.import_curve.svg(filepath=svg_file_path)
 
+            # Adjust scale, location, and rotation.
+            imported_curve = [x for x in bpy.data.objects if x not in objects_before_import]
+            active_obj = imported_curve[0]
+            context.view_layer.objects.active = active_obj
+            for x in imported_curve:
+                x.select_set(True)
+            bpy.ops.object.join()
+            bpy.ops.object.origin_set(type='ORIGIN_CENTER_OF_MASS', center='MEDIAN')
+            active_obj.scale = (100*text_scale, 100*text_scale, 100*text_scale)
+            active_obj.location = (x_loc, y_loc, z_loc)
+            active_obj.rotation_euler = (math.radians(x_rot), math.radians(y_rot), math.radians(z_rot))
+
+            # Convert to Mesh
+            bpy.ops.object.convert(target='MESH')
 
     except subprocess.CalledProcessError:
-        ErrorMessageBox("Please check that latex and dvisvgm are properly installed. Also, if using a custom preamble,"
-                        "check that it is formatted correctly.", "Compilation Error")
+        ErrorMessageBox("Please check your latex code for errors and that latex and dvisvgm are properly installed. "
+                        "Also, if using a custom preamble, check that it is formatted correctly.", "Compilation Error")
     finally:
         print("Finished trying to compile latex and create an svg file.")
 
