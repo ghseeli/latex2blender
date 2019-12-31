@@ -166,7 +166,8 @@ def import_latex(self, context, latex_code, text_scale, x_loc, y_loc, z_loc, x_r
 
 
     except subprocess.CalledProcessError:
-        ErrorMessageBox("Your preamble file or latex code has an error.", "Compilation Error")
+        ErrorMessageBox("Please check that latex and dvisvgm are properly installed. Also, if using a custom preamble,"
+                        "check that it is formatted correctly.", "Compilation Error")
     finally:
         print("Finished trying to compile latex and create an svg file.")
 
