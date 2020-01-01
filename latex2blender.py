@@ -166,7 +166,7 @@ def import_latex(self, context, latex_code, text_scale, x_loc, y_loc, z_loc, x_r
                 x.select_set(True)
             bpy.ops.object.join()
             bpy.ops.object.origin_set(type='ORIGIN_CENTER_OF_MASS', center='MEDIAN')
-            active_obj.scale = (100*text_scale, 100*text_scale, 100*text_scale)
+            active_obj.scale = (600*text_scale, 600*text_scale, 600*text_scale)
             active_obj.location = (x_loc, y_loc, z_loc)
             active_obj.rotation_euler = (math.radians(x_rot), math.radians(y_rot), math.radians(z_rot))
 
