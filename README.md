@@ -1,7 +1,8 @@
 # latex2blender
-Blender add-on to render LaTeX and import it into Blender
 
-This Blender add-on is designed to import Latex graphics into Blender as mesh objects. In object mode in the 3D View, it shows up as a panel in the sidebar. Type "n" to open the sidebar.
+[Blender](https://www.blender.org/) add-on to render LaTeX and import it into Blender. See the [wiki](https://github.com/ghseeli/latex2blender/wiki) for more details, including how to install and use.
+
+This Blender add-on is designed to import LaTeX graphics into Blender as mesh objects. In the 3D Viewport with object mode selected, latex2blender appears as a panel in the sidebar. Type "n" to open the sidebar.
 
 ## Requirements
 
