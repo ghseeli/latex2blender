@@ -6,7 +6,7 @@ bl_info = {
     "blender": (2, 80, 0),
     "location": "View3D > Sidebar",
     "warning": "",
-    "wiki_url": "",
+    "wiki_url": "https://github.com/ghseeli/latex2blender/wiki",
     "support": "COMMUNITY",
     "category": "Add Mesh"
 }
@@ -172,6 +172,12 @@ def import_latex(self, context, latex_code, text_scale, x_loc, y_loc, z_loc, x_r
 
             # Convert to Mesh
             bpy.ops.object.convert(target='MESH')
+
+            # Move mesh to scene collection and delete the temp.svg collection. Then rename mesh.
+            temp_svg_collection = active_obj.users_collection[0]
+            bpy.ops.object.move_to_collection(collection_index=0)
+            bpy.data.collections.remove(temp_svg_collection)
+            active_obj.name = 'Latex Figure'
 
     except subprocess.CalledProcessError:
         ErrorMessageBox("Please check your latex code for errors and that latex and dvisvgm are properly installed. "
