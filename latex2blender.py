@@ -117,7 +117,7 @@ def import_latex(self, context, latex_code, text_scale, x_loc, y_loc, z_loc, x_r
     os.chdir(temp_dir)
 
     # Create temp latex file with specified preamble.
-    temp_file_name = temp_dir + '/temp'
+    temp_file_name = temp_dir + os.sep + 'temp'
     if custom_preamble_bool:
         shutil.copy(preamble_path, temp_file_name + '.tex')
         temp = open(temp_file_name + '.tex', "a")
@@ -155,7 +155,7 @@ def import_latex(self, context, latex_code, text_scale, x_loc, y_loc, z_loc, x_r
                             "Compilation Error")
         else:
             # Import svg into blender as curve
-            svg_file_path = temp_dir + '/' + svg_file_list[0]
+            svg_file_path = temp_dir + os.sep + svg_file_list[0]
             bpy.ops.import_curve.svg(filepath=svg_file_path)
 
             # Adjust scale, location, and rotation.
@@ -178,11 +178,13 @@ def import_latex(self, context, latex_code, text_scale, x_loc, y_loc, z_loc, x_r
             bpy.ops.object.move_to_collection(collection_index=0)
             bpy.data.collections.remove(temp_svg_collection)
             active_obj.name = 'Latex Figure'
-
+    except FileNotFoundError as e:
+        ErrorMessageBox("Please check that LaTeX is installed on your system.", "Compilation Error")
     except subprocess.CalledProcessError:
         ErrorMessageBox("Please check your latex code for errors and that latex and dvisvgm are properly installed. "
                         "Also, if using a custom preamble, check that it is formatted correctly.", "Compilation Error")
     finally:
+        os.chdir("..")
         print("Finished trying to compile latex and create an svg file.")
 
 
