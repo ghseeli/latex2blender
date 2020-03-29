@@ -114,6 +114,7 @@ def import_latex(self, context, latex_code, text_scale, x_loc, y_loc, z_loc, x_r
                  temp_dir, preamble_path=None):
 
     # Set current directory to temp_directory
+    current_dir = os.getcwd()
     os.chdir(temp_dir)
 
     # Create temp latex file with specified preamble.
@@ -184,7 +185,7 @@ def import_latex(self, context, latex_code, text_scale, x_loc, y_loc, z_loc, x_r
         ErrorMessageBox("Please check your latex code for errors and that latex and dvisvgm are properly installed. "
                         "Also, if using a custom preamble, check that it is formatted correctly.", "Compilation Error")
     finally:
-        os.chdir("..")
+        os.chdir(current_dir)
         print("Finished trying to compile latex and create an svg file.")
 
 
