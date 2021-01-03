@@ -159,21 +159,22 @@ def import_latex(self, context, latex_code, text_scale, x_loc, y_loc, z_loc, x_r
             svg_file_path = temp_dir + os.sep + svg_file_list[0]
             bpy.ops.import_curve.svg(filepath=svg_file_path)
 
-            # Adjust scale, location, and rotation.
+            # Select imported objects
             imported_curve = [x for x in bpy.data.objects if x not in objects_before_import]
             active_obj = imported_curve[0]
             context.view_layer.objects.active = active_obj
             for x in imported_curve:
                 x.select_set(True)
+
+            # Convert to Mesh
+            bpy.ops.object.convert(target='MESH')
+
+            # Adjust scale, location, and rotation.
             bpy.ops.object.join()
             bpy.ops.object.origin_set(type='ORIGIN_CENTER_OF_MASS', center='MEDIAN')
             active_obj.scale = (600*text_scale, 600*text_scale, 600*text_scale)
             active_obj.location = (x_loc, y_loc, z_loc)
             active_obj.rotation_euler = (math.radians(x_rot), math.radians(y_rot), math.radians(z_rot))
-
-            # Convert to Mesh
-            bpy.ops.object.convert(target='MESH')
-
             # Move mesh to scene collection and delete the temp.svg collection. Then rename mesh.
             temp_svg_collection = active_obj.users_collection[0]
             bpy.ops.object.move_to_collection(collection_index=0)
