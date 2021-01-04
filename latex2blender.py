@@ -2,7 +2,7 @@ bl_info = {
     "name": "latex2blender",
     "description": "Enables user to write Latex in Blender.",
     "author": "Peter K. Johnson and George H. Seelinger",
-    "version": (1, 0),
+    "version": (1, 0, 3),
     "blender": (2, 80, 0),
     "location": "View3D > Sidebar",
     "warning": "",
