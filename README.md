@@ -6,10 +6,13 @@ This Blender add-on is designed to import LaTeX graphics into Blender as mesh ob
 
 ## Requirements
 
-This add-on works as a normal Blender add-on, but it requires the following be installed on your computer.
+This add-on works as a normal Blender add-on. It either requires the following be installed on your computer.
 
 1. `latex` -- The add-on uses the local LaTeX installation to compile entered LaTeX code.
 1. `dvisvgm` -- The add-on uses this tool to convert LaTeX outputted .dvi into an .svg file
+
+or the usage of a latex docker image such as [blang/latex](https://github.com/blang/latex-docker) 
+via the `pre-command` option.
 
 ## License
 

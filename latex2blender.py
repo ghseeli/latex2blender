@@ -38,6 +38,7 @@ import subprocess
 import tempfile
 import shutil
 import math
+import functools
 
 
 def rel_to_abs(sp_name):
@@ -188,6 +189,21 @@ class Settings(PropertyGroup):
         subtype='FILE_PATH'
     )
 
+    pre_command_bool: BoolProperty(
+        name="Use Custom Pre-command",
+        description="Use a custom pre-command",
+        default=False
+    )
+
+    pre_command: StringProperty(
+        name="Pre-command",
+        description="""
+        A custom command that is prepended to the usual latex commands. This allows 
+        running the various commands within a docker container for example.
+        """,
+        default = "",
+    )
+
 
 def ErrorMessageBox(message, title):
     def draw(self, context):
@@ -201,7 +217,7 @@ def import_latex(self, context, latex_code, custom_latex_path,
                  custom_dvisvgm_path, command_selection, text_scale, x_loc,
                  y_loc, z_loc, x_rot,y_rot, z_rot, custom_preamble_bool,
                  temp_dir, custom_material_bool, custom_material_value,
-                 compile_mode, preamble_path=None):
+                 compile_mode, *, preamble_path=None, pre_command):
 
     # Set current directory to temp_directory
     current_dir = os.getcwd()
@@ -250,15 +266,22 @@ def import_latex(self, context, latex_code, custom_latex_path,
                 and custom_dvisvgm_path != custom_xelatex_path
                 and custom_dvisvgm_path != custom_lualatex_path):
             local_env['PATH'] = (custom_dvisvgm_path + os.pathsep + local_env['PATH'])
+        fn = functools.partial(subprocess.run,
+                               cwd=temp_dir,
+                               env=local_env,
+                               text=True,
+                               stdout=subprocess.PIPE,
+                               stderr=subprocess.STDOUT)
+
         if command_selection == "latex":
-            tex_process = subprocess.run(["latex", "-interaction=nonstopmode", temp_file_name + ".tex"], env=local_env, text=True, stdout = subprocess.PIPE, stderr = subprocess.STDOUT)
+            tex_process = fn([pre_command, "latex", "-interaction=nonstopmode", "temp.tex"])
         elif command_selection == "pdflatex":
-            tex_process = subprocess.run(["pdflatex", "-interaction=nonstopmode", "-output-format=dvi",temp_file_name + ".tex"], env=local_env, text=True, stdout = subprocess.PIPE, stderr = subprocess.STDOUT)
+            tex_process = fn([pre_command, "pdflatex", "-interaction=nonstopmode", "-output-format=dvi", "temp.tex"])
         elif command_selection == "xelatex":
-            tex_process = subprocess.run(["xelatex", "-interaction=nonstopmode", "-no-pdf", temp_file_name + ".tex"], env=local_env, text=True, stdout = subprocess.PIPE, stderr = subprocess.STDOUT)
+            tex_process = fn([pre_command, "xelatex", "-interaction=nonstopmode", "-no-pdf", "temp.tex"])
         else:
-            tex_process = subprocess.run(["lualatex", "-interaction=nonstopmode", "-output-format=dvi", temp_file_name + ".tex"], env=local_env, text=True, stdout = subprocess.PIPE, stderr = subprocess.STDOUT)
-        dvisvgm_process = subprocess.run(["dvisvgm", "--no-fonts", temp_file_name + ".dvi"], env=local_env, text=True, stdout = subprocess.PIPE, stderr = subprocess.STDOUT)
+            tex_process = fn([pre_command, "lualatex", "-interaction=nonstopmode", "-output-format=dvi", "temp.tex"])
+        dvisvgm_process = fn([pre_command, "dvisvgm", "--no-fonts", "temp.dvi"])
         svg_file_list = glob.glob("*.svg")
         bpy.ops.object.select_all(action='DESELECT')
 
@@ -363,7 +386,8 @@ class OBJECT_OT_add_latex_preset(AddPresetBase, Operator):
         't.y_rot',
         't.z_rot',
         't.custom_preamble_bool',
-        't.preamble_path'
+        't.preamble_path',
+        't.pre_command'
     ]
 
     preset_subdir = 'latex2blender_presets'
@@ -405,7 +429,7 @@ class WM_OT_compile_as_curve(Operator):
                              t.y_loc, t.z_loc, t.x_rot, t.y_rot, t.z_rot,
                              t.custom_preamble_bool, temp_dir,
                              t.custom_material_bool, t.custom_material_value,
-                             'curve', t.preamble_path)
+                             'curve',  preamble_path=t.preamble_path, pre_command=t.pre_command)
         return {'FINISHED'}
 
 # Compile latex as mesh.
@@ -435,7 +459,7 @@ class WM_OT_compile_as_mesh(Operator):
                              t.y_loc, t.z_loc, t.x_rot, t.y_rot, t.z_rot,
                              t.custom_preamble_bool, temp_dir,
                              t.custom_material_bool, t.custom_material_value,
-                             'mesh', t.preamble_path)
+                             'mesh',  preamble_path=t.preamble_path, pre_command=t.pre_command)
         return {'FINISHED'}
 
 # Compile latex as grease pencil.
@@ -465,7 +489,7 @@ class WM_OT_compile_as_grease_pencil(Operator):
                              t.y_loc, t.z_loc, t.x_rot, t.y_rot, t.z_rot,
                              t.custom_preamble_bool, temp_dir,
                              t.custom_material_bool, t.custom_material_value,
-                             'grease pencil', t.preamble_path)
+                             'grease pencil', preamble_path=t.preamble_path, pre_command=t.pre_command)
         return {'FINISHED'}
 
 
@@ -524,6 +548,10 @@ class OBJECT_PT_latex2blender_panel(Panel):
         layout.prop(latex2blender_tool, "custom_preamble_bool")
         if latex2blender_tool.custom_preamble_bool:
             layout.prop(latex2blender_tool, "preamble_path")
+
+        layout.prop(latex2blender_tool, "pre_command_bool")
+        if latex2blender_tool.pre_command_bool:
+            layout.prop(latex2blender_tool, "pre_command")
 
         layout.prop(latex2blender_tool, "custom_material_bool")
         if latex2blender_tool.custom_material_bool:
