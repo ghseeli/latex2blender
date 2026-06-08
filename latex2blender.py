@@ -2,8 +2,8 @@ bl_info = {
     "name": "latex2blender",
     "description": "Enables user to write LaTeX in Blender.",
     "author": "Peter K. Johnson and George H. Seelinger",
-    "version": (1, 0, 7),
-    "blender": (2, 80, 0),
+    "version": (1, 1, 0),
+    "blender": (5, 1, 2),
     "location": "View3D > Sidebar",
     "warning": "",
     "wiki_url": "https://github.com/ghseeli/latex2blender/wiki",
@@ -164,7 +164,7 @@ class Settings(PropertyGroup):
 
     custom_material_bool: BoolProperty(
         name="Use Custom Material",
-        description="Use a custom material",
+        description="Use a custom material. Note that mesh materials and grease pencil materials are different and the right type has to be used depending on how you compile your object.",
         default=False
     )
 
@@ -194,6 +194,14 @@ def ErrorMessageBox(message, title):
         self.layout.label(text=message)
     bpy.context.window_manager.popup_menu(draw, title=title, icon='ERROR')
 
+
+def move_object_to_scene_collection(obj, context):
+    scene_collection = context.scene.collection
+    for collection in list(obj.users_collection):
+        if collection != scene_collection:
+            if scene_collection not in obj.users_collection:
+                scene_collection.objects.link(obj)
+            collection.objects.unlink(obj)
 
 # Imports compiled latex code into blender given chosen settings.
 def import_latex(self, context, latex_code, custom_latex_path,
@@ -258,7 +266,7 @@ def import_latex(self, context, latex_code, custom_latex_path,
             tex_process = subprocess.run(["xelatex", "-interaction=nonstopmode", "-no-pdf", temp_file_name + ".tex"], env=local_env, text=True, stdout = subprocess.PIPE, stderr = subprocess.STDOUT)
         else:
             tex_process = subprocess.run(["lualatex", "-interaction=nonstopmode", "-output-format=dvi", temp_file_name + ".tex"], env=local_env, text=True, stdout = subprocess.PIPE, stderr = subprocess.STDOUT)
-        dvisvgm_process = subprocess.run(["dvisvgm", "--no-fonts", temp_file_name + ".dvi"], env=local_env, text=True, stdout = subprocess.PIPE, stderr = subprocess.STDOUT)
+        dvisvgm_process = subprocess.run(["dvisvgm", "--no-fonts=1", temp_file_name + ".dvi"], env=local_env, text=True, stdout = subprocess.PIPE, stderr = subprocess.STDOUT)
         svg_file_list = glob.glob("*.svg")
         bpy.ops.object.select_all(action='DESELECT')
 
@@ -274,49 +282,58 @@ def import_latex(self, context, latex_code, custom_latex_path,
 
         else:
             svg_file_path = temp_dir + os.sep + svg_file_list[0]
-
             objects_before_import = bpy.data.objects[:]
-            # Import svg into blender as curve
-            bpy.ops.import_curve.svg(filepath=svg_file_path)
+            if compile_mode == "mesh":
+                # Import svg into blender as curve
+                bpy.ops.import_curve.svg(filepath=svg_file_path)
 
-            # Select imported objects
-            imported_curve = [x for x in bpy.data.objects if x not in objects_before_import]
-            active_obj = imported_curve[0]
-            context.view_layer.objects.active = active_obj
-            for x in imported_curve:
-                x.select_set(True)
-            
-            # Convert to mesh
-            bpy.ops.object.convert(target='MESH')
+                # Select imported objects
+                imported_curve = [x for x in bpy.data.objects if x not in objects_before_import]
+                active_obj = imported_curve[0]
+                context.view_layer.objects.active = active_obj
+                for x in imported_curve:
+                    x.select_set(True)
 
-            # Join components to merge into single object
-            bpy.ops.object.join()
+                # Convert to mesh
+                bpy.ops.object.convert(target='MESH')
 
-            # Adjust scale, location, and rotation.
-            bpy.ops.object.origin_set(type='ORIGIN_CENTER_OF_MASS', center='MEDIAN')
-            active_obj.scale = (600*text_scale, 600*text_scale, 600*text_scale)
-            bpy.ops.object.transform_apply(location = False, scale = True, rotation = False)
-            active_obj.location = (x_loc, y_loc, z_loc)
-            active_obj.rotation_euler = (math.radians(x_rot), math.radians(y_rot), math.radians(z_rot))
+                # Join components to merge into single object
+                bpy.ops.object.join()
 
-            # Move mesh to scene collection and delete the temp.svg collection. Then rename mesh.
-            temp_svg_collection = active_obj.users_collection[0]
-            bpy.ops.object.move_to_collection(collection_index=0)
-            bpy.data.collections.remove(temp_svg_collection)
-            active_obj.name = 'LaTeX Figure'
+                # Adjust scale, location, and rotation.
+                bpy.ops.object.origin_set(type='ORIGIN_CENTER_OF_MASS', center='MEDIAN')
+                active_obj.scale = (600*text_scale, 600*text_scale, 600*text_scale)
+                active_obj.location = (x_loc, y_loc, z_loc)
+                active_obj.rotation_euler = (math.radians(x_rot), math.radians(y_rot), math.radians(z_rot))
+                bpy.ops.object.transform_apply(location = True, scale = True, rotation = True)
+
+
+                # Move mesh to scene collection and delete the temp.svg collection. Then rename mesh.
+                temp_svg_collection = active_obj.users_collection[0]
+                move_object_to_scene_collection(active_obj, context)
+                bpy.data.collections.remove(temp_svg_collection)
+                active_obj.name = 'LaTeX Figure'
+
+            if compile_mode == "grease pencil":
+                bpy.ops.wm.grease_pencil_import_svg(filepath=svg_file_path, resolution=50)
+                for x in bpy.data.objects:
+                    if x not in objects_before_import:
+                        active_obj = x
+                        break
+
+                # Adjust scale, location, and rotation.
+                bpy.ops.object.origin_set(type='ORIGIN_CENTER_OF_MASS', center='MEDIAN')
+                active_obj.scale = (21.165*text_scale, 21.165*text_scale, 21.165*text_scale)
+                active_obj.location = (x_loc, y_loc, z_loc)
+                active_obj.rotation_euler = (math.radians(x_rot-90), math.radians(y_rot), math.radians(z_rot))
+                bpy.ops.object.transform_apply(location = True, scale = True, rotation = True)
+
+                # Moves to scene collection, fixes name.
+                move_object_to_scene_collection(active_obj, context)
+                active_obj.name = "LaTeX Figure"
 
             if custom_material_bool:
                 active_obj.material_slots[0].material = custom_material_value
-
-            if compile_mode == "grease pencil":
-                # Convert to grease pencil
-                bpy.ops.object.convert(target='GPENCIL', angle=0, thickness=1, seams=True, faces=True, offset=0)
-                
-                # Moves to scene collection, fixes name.
-                bpy.ops.object.move_to_collection(collection_index=0)
-                bpy.context.selected_objects[0].name = "LaTeX Figure"
-                if custom_material_bool:
-                    bpy.context.selected_objects[0].material_slots[0].material = custom_material_value
 
             # Create custom property that stores typed LaTeX code
             bpy.context.selected_objects[0]["Original LaTeX Code"] = latex_code
