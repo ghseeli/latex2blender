@@ -311,7 +311,6 @@ def import_latex(self, context, latex_code, custom_latex_path,
                 # Move mesh to scene collection and delete the temp.svg collection. Then rename mesh.
                 temp_svg_collection = active_obj.users_collection[0]
                 move_object_to_scene_collection(active_obj, context)
-                # bpy.ops.object.move_to_collection(collection_index=0)
                 bpy.data.collections.remove(temp_svg_collection)
                 active_obj.name = 'LaTeX Figure'
 
