@@ -164,7 +164,7 @@ class Settings(PropertyGroup):
 
     custom_material_bool: BoolProperty(
         name="Use Custom Material",
-        description="Use a custom material",
+        description="Use a custom material. Note that mesh materials and grease pencil materials are different and the right type has to be used depending on how you compile your object.",
         default=False
     )
 
