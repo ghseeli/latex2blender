@@ -195,6 +195,14 @@ def ErrorMessageBox(message, title):
     bpy.context.window_manager.popup_menu(draw, title=title, icon='ERROR')
 
 
+def move_object_to_scene_collection(obj, context):
+    scene_collection = context.scene.collection
+    for collection in list(obj.users_collection):
+        if collection != scene_collection:
+            if scene_collection not in obj.users_collection:
+                scene_collection.objects.link(obj)
+            collection.objects.unlink(obj)
+
 # Imports compiled latex code into blender given chosen settings.
 def import_latex(self, context, latex_code, custom_latex_path,
                  custom_pdflatex_path, custom_xelatex_path, custom_lualatex_path,
@@ -301,7 +309,8 @@ def import_latex(self, context, latex_code, custom_latex_path,
 
             # Move mesh to scene collection and delete the temp.svg collection. Then rename mesh.
             temp_svg_collection = active_obj.users_collection[0]
-            bpy.ops.object.move_to_collection(collection_index=0)
+            move_object_to_scene_collection(active_obj, context)
+            # bpy.ops.object.move_to_collection(collection_index=0)
             bpy.data.collections.remove(temp_svg_collection)
             active_obj.name = 'LaTeX Figure'
 
@@ -310,10 +319,10 @@ def import_latex(self, context, latex_code, custom_latex_path,
 
             if compile_mode == "grease pencil":
                 # Convert to grease pencil
-                bpy.ops.object.convert(target='GPENCIL', angle=0, thickness=1, seams=True, faces=True, offset=0)
+                bpy.ops.object.convert(target='GREASEPENCIL', thickness=1, faces=True, offset=0)
                 
                 # Moves to scene collection, fixes name.
-                bpy.ops.object.move_to_collection(collection_index=0)
+                move_object_to_scene_collection(active_obj, context)
                 bpy.context.selected_objects[0].name = "LaTeX Figure"
                 if custom_material_bool:
                     bpy.context.selected_objects[0].material_slots[0].material = custom_material_value
