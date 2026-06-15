@@ -1,0 +1,25 @@
+name: Blender Extension Compliance Check
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  validate-extension:
+    runs-on: ubuntu-latest
+    container:
+      image: linuxserver/blender:4.2.0
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Build extension package
+        run: |
+          mkdir -p ./dist
+          blender --command extension build \
+            --source-dir . \
+            --output-dir ./dist
+
+      - name: Validate extension
+        run: |
+          blender --command extension validate ./dist/*.zip

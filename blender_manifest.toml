@@ -1,0 +1,19 @@
+schema_version = "1.0.0"
+
+id = "latex2blender"
+version = "1.1.1"
+name = "latex2blender"
+tagline = "Enables user to write LaTeX in Blender"
+maintainer = "Peter K. Johnson and George H. Seelinger"
+type = "add-on"
+
+website = "https://github.com/ghseeli/latex2blender"
+
+tags = ["Add Mesh", "Grease Pencil", "Import-Export"]
+
+blender_version_min = "4.2.0"
+
+license = ["SPDX:GPL-3.0-or-later"]
+
+[permissions]
+files = "Access to latex compiler and importing generating .svg files"
