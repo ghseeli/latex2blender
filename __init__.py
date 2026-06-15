@@ -150,10 +150,10 @@ class Settings(PropertyGroup):
 
     custom_material_bool: BoolProperty(
         name="Use Custom Material",
-        description="Use a custom material. Note Grease Pencil imports svgs with" \
-        "vertex colors. So, you need to reset vertex colors to make a custom" \
-        "material visible. Also, you need use a Grease Pencil Material as" \
-        "opposed to a mesh material."
+        description="Use a custom material. Note Grease Pencil imports svgs with " \
+        "vertex colors. So, you need to reset vertex colors to make a custom " \
+        "material visible. Also, Grease Pencil and Mesh objects have different " \
+        "material types.",
         default=False
     )
 
