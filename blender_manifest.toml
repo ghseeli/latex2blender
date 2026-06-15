@@ -1,0 +1,18 @@
+schema_version = "1.0.0"
+
+id = "latex2blender"
+version = "1.1.0"
+name = "latex2blender"
+tagline = "Enables user to write LaTeX in Blender"
+maintainer = "Peter K. Johnson and George H. Seelinger"
+type = "add-on"
+
+website = "https://github.com/ghseeli/latex2blender/wiki"
+
+tags = ["Add Mesh"]
+
+blender_version_min = "4.2.0"
+
+license = ["SPDX:GPL-3.0-or-later"]
+
+# No external Python dependencies — no wheels needed.

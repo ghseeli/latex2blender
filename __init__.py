@@ -1,17 +1,3 @@
-bl_info = {
-    "name": "latex2blender",
-    "description": "Enables user to write LaTeX in Blender.",
-    "author": "Peter K. Johnson and George H. Seelinger",
-    "version": (1, 1, 0),
-    "blender": (5, 1, 2),
-    "location": "View3D > Sidebar",
-    "warning": "",
-    "wiki_url": "https://github.com/ghseeli/latex2blender/wiki",
-    "support": "COMMUNITY",
-    "category": "Add Mesh"
-}
-
-
 import bpy
 
 from bpy.props import (StringProperty,
@@ -353,7 +339,7 @@ def import_latex(self, context, latex_code, custom_latex_path,
 class LATEX2BLENDER_MT_Presets(Menu):
     bl_idname = 'LATEX2BLENDER_MT_Presets'
     bl_label = 'Presets'
-    preset_subdir = 'latex2blender_presets'
+    preset_subdir = __package__ + '_presets'
     preset_operator = 'script.execute_preset'
     draw = Menu.draw_preset
 
@@ -383,7 +369,7 @@ class OBJECT_OT_add_latex_preset(AddPresetBase, Operator):
         't.preamble_path'
     ]
 
-    preset_subdir = 'latex2blender_presets'
+    preset_subdir = __package__ + '_presets'
 
 # Display into an existing panel
 def panel_func(self, context):
@@ -532,11 +518,8 @@ classes = (
     OBJECT_PT_latex2blender_panel
 )
 
-# Get path of blender scripts directory.
-scripts_dir = bpy.utils.user_resource('SCRIPTS')
-
-# Get path of latex2blender_preset directory
-l2b_presets = os.path.join(scripts_dir, 'presets', 'latex2blender_presets')
+def _get_presets_dir():
+    return bpy.utils.extension_path_user(__package__, path="presets", create=True)
 
 
 def register():
@@ -547,8 +530,7 @@ def register():
     OBJECT_PT_latex2blender_panel.prepend(panel_func)
 
     # Create latex2blender_presets folder if not already created.
-    if not os.path.isdir(l2b_presets):
-        os.makedirs(l2b_presets)
+    _get_presets_dir()
 
 
 def unregister():
