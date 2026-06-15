@@ -150,7 +150,10 @@ class Settings(PropertyGroup):
 
     custom_material_bool: BoolProperty(
         name="Use Custom Material",
-        description="Use a custom material. Note that mesh materials and grease pencil materials are different and the right type has to be used depending on how you compile your object.",
+        description="Use a custom material. Note Grease Pencil imports svgs with" \
+        "vertex colors. So, you need to reset vertex colors to make a custom" \
+        "material visible. Also, you need use a Grease Pencil Material as" \
+        "opposed to a mesh material."
         default=False
     )
 
@@ -319,7 +322,8 @@ def import_latex(self, context, latex_code, custom_latex_path,
                 active_obj.name = "LaTeX Figure"
 
             if custom_material_bool:
-                active_obj.material_slots[0].material = custom_material_value
+                for i in range(len(active_obj.material_slots)):
+                    active_obj.material_slots[i].material = custom_material_value
 
             # Create custom property that stores typed LaTeX code
             bpy.context.selected_objects[0]["Original LaTeX Code"] = latex_code
