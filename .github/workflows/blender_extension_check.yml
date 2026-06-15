@@ -15,6 +15,7 @@ jobs:
 
       - name: Build extension package
         run: |
+          mkdir -p ./dist
           blender --command extension build \
             --source-dir . \
             --output-dir ./dist
