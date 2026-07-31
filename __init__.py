@@ -148,20 +148,31 @@ class Settings(PropertyGroup):
         default=0.0,
     )
 
-    custom_material_bool: BoolProperty(
-        name="Use Custom Material",
-        description="Use a custom material. Note Grease Pencil imports svgs with " \
-        "vertex colors. So, you need to reset vertex colors to make a custom " \
-        "material visible. Also, Grease Pencil and Mesh objects have different " \
-        "material types.",
+    custom_mesh_material_bool: BoolProperty(
+        name="Use Custom Mesh Material",
+        description="Use a custom mesh material",
         default=False
     )
 
-    custom_material_value: PointerProperty(
+    custom_mesh_material: PointerProperty(
         type=Material,
-        name="Material",
-        description="Choose a material"
+        name="",
+        description="Choose a mesh material",
+        poll=lambda self, material: not material.is_grease_pencil
     )
+
+    custom_gp_material_bool: BoolProperty(
+            name="Use Custom Grease Pencil Material",
+            description="Use a custom Grease Pencil material",
+            default=False
+        )
+
+    custom_gp_material: PointerProperty(
+            type=Material,
+            name="",
+            description="Choose a Grease Pencil material",
+            poll=lambda self, material: material.is_grease_pencil
+        )
 
     custom_preamble_bool: BoolProperty(
         name="Use Custom Preamble",
@@ -197,7 +208,8 @@ def import_latex(self, context, latex_code, custom_latex_path,
                  custom_pdflatex_path, custom_xelatex_path, custom_lualatex_path,
                  custom_dvisvgm_path, command_selection, text_scale, x_loc,
                  y_loc, z_loc, x_rot,y_rot, z_rot, custom_preamble_bool,
-                 temp_dir, custom_material_bool, custom_material_value,
+                 temp_dir, custom_mesh_material_bool, custom_mesh_material,
+                 custom_gp_material_bool, custom_gp_material,
                  compile_mode, preamble_path=None):
 
     # Set current directory to temp_directory
@@ -303,12 +315,19 @@ def import_latex(self, context, latex_code, custom_latex_path,
                 bpy.data.collections.remove(temp_svg_collection)
                 active_obj.name = 'LaTeX Figure'
 
+                if custom_mesh_material_bool:
+                    bpy.ops.object.material_slot_remove_all()
+                    bpy.ops.object.material_slot_add()
+                    active_obj.material_slots[0].material = custom_mesh_material
+
             if compile_mode == "grease pencil":
                 bpy.ops.wm.grease_pencil_import_svg(filepath=svg_file_path, resolution=50)
                 for x in bpy.data.objects:
                     if x not in objects_before_import:
                         active_obj = x
                         break
+
+                context.view_layer.objects.active = active_obj
 
                 # Adjust scale, location, and rotation.
                 bpy.ops.object.origin_set(type='ORIGIN_CENTER_OF_MASS', center='MEDIAN')
@@ -321,9 +340,13 @@ def import_latex(self, context, latex_code, custom_latex_path,
                 move_object_to_scene_collection(active_obj, context)
                 active_obj.name = "LaTeX Figure"
 
-            if custom_material_bool:
-                for i in range(len(active_obj.material_slots)):
-                    active_obj.material_slots[i].material = custom_material_value
+                if custom_gp_material_bool:
+                    bpy.ops.grease_pencil.vertexmode_toggle()
+                    bpy.ops.grease_pencil.stroke_reset_vertex_color()
+                    bpy.ops.grease_pencil.vertexmode_toggle()
+                    bpy.ops.object.material_slot_remove_all()
+                    bpy.ops.object.material_slot_add()
+                    active_obj.material_slots[0].material = custom_gp_material
 
             # Create custom property that stores typed LaTeX code
             bpy.context.selected_objects[0]["Original LaTeX Code"] = latex_code
@@ -396,8 +419,10 @@ class WM_OT_compile_as_mesh(Operator):
                 and t.preamble_path == '':
             ErrorMessageBox("No LaTeX code has been entered and no preamble file has been chosen. Please enter some "
                             "LaTeX code and choose a .tex file for the preamble", "Multiple Errors")
-        elif t.custom_material_bool and t.custom_material_value is None:
-            ErrorMessageBox("No material has been chosen. Please choose a material.", "Custom Material Error")
+        elif t.custom_mesh_material_bool and t.custom_mesh_material is None:
+            ErrorMessageBox("No mesh material has been chosen. Please choose a" \
+            " mesh material or uncheck the use custom mesh material box.",
+            "Custom Mesh Material Error")
         elif t.latex_code == '':
             ErrorMessageBox("No LaTeX code has been entered. Please enter some LaTeX code.", "LaTeX Code Error")
         elif t.custom_preamble_bool and t.preamble_path == '':
@@ -410,7 +435,8 @@ class WM_OT_compile_as_mesh(Operator):
                              t.command_selection, t.text_scale, t.x_loc,
                              t.y_loc, t.z_loc, t.x_rot, t.y_rot, t.z_rot,
                              t.custom_preamble_bool, temp_dir,
-                             t.custom_material_bool, t.custom_material_value,
+                             t.custom_mesh_material_bool, t.custom_mesh_material,
+                             t.custom_gp_material_bool, t.custom_gp_material,
                              'mesh', t.preamble_path)
         return {'FINISHED'}
 
@@ -426,8 +452,10 @@ class WM_OT_compile_as_grease_pencil(Operator):
                 and t.preamble_path == '':
             ErrorMessageBox("No LaTeX code has been entered and no preamble file has been chosen. Please enter some "
                             "LaTeX code and choose a .tex file for the preamble", "Multiple Errors")
-        elif t.custom_material_bool and t.custom_material_value is None:
-            ErrorMessageBox("No material has been chosen. Please choose a material.", "Custom Material Error")
+        elif t.custom_gp_material_bool and t.custom_gp_material is None:
+            ErrorMessageBox("No Grease Pencil material has been chosen. Please" \
+            " choose a Grease Pencil material or uncheck the use custom Grease" \
+            " Pencil box.", "Custom Grease Pencil Material Error")
         elif t.latex_code == '':
             ErrorMessageBox("No LaTeX code has been entered. Please enter some LaTeX code.", "LaTeX Code Error")
         elif t.custom_preamble_bool and t.preamble_path == '':
@@ -440,7 +468,8 @@ class WM_OT_compile_as_grease_pencil(Operator):
                              t.command_selection, t.text_scale, t.x_loc,
                              t.y_loc, t.z_loc, t.x_rot, t.y_rot, t.z_rot,
                              t.custom_preamble_bool, temp_dir,
-                             t.custom_material_bool, t.custom_material_value,
+                             t.custom_mesh_material_bool, t.custom_mesh_material,
+                             t.custom_gp_material_bool, t.custom_gp_material,
                              'grease pencil', t.preamble_path)
         return {'FINISHED'}
 
@@ -501,17 +530,27 @@ class OBJECT_PT_latex2blender_panel(Panel):
         if latex2blender_tool.custom_preamble_bool:
             layout.prop(latex2blender_tool, "preamble_path")
 
-        layout.prop(latex2blender_tool, "custom_material_bool")
-        if latex2blender_tool.custom_material_bool:
-            layout.prop(latex2blender_tool, "custom_material_value")
-
         layout.separator()
 
         box = layout.box()
         row = box.row()
         row.operator("wm.compile_as_mesh")
         row = box.row()
+        row.prop(latex2blender_tool, "custom_mesh_material_bool")
+        if latex2blender_tool.custom_mesh_material_bool:
+            row = box.row()
+            row.prop(latex2blender_tool, "custom_mesh_material")
+
+        layout.separator()
+
+        box = layout.box()
+        row = box.row()
         row.operator("wm.compile_as_grease_pencil")
+        row = box.row()
+        row.prop(latex2blender_tool, "custom_gp_material_bool")
+        if latex2blender_tool.custom_gp_material_bool:
+            row = box.row()
+            row.prop(latex2blender_tool, "custom_gp_material")
 
 classes = (
     Settings,
