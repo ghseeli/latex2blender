@@ -16,8 +16,6 @@ from bpy.types import (Panel,
 
 from bl_operators.presets import AddPresetBase
 
-from bl_ui.utils import PresetPanel
-
 import os
 import glob
 import subprocess
@@ -302,12 +300,12 @@ def import_latex(self, context, latex_code, custom_latex_path,
                 bpy.ops.object.join()
 
                 # Adjust scale, location, and rotation.
-                bpy.ops.object.origin_set(type='ORIGIN_CENTER_OF_MASS', center='MEDIAN')
+                bpy.ops.object.origin_set(type='ORIGIN_GEOMETRY', center='MEDIAN')
                 active_obj.scale = (600*text_scale, 600*text_scale, 600*text_scale)
                 active_obj.location = (x_loc, y_loc, z_loc)
                 active_obj.rotation_euler = (math.radians(x_rot), math.radians(y_rot), math.radians(z_rot))
                 bpy.ops.object.transform_apply(location = True, scale = True, rotation = True)
-
+                bpy.ops.object.origin_set(type='ORIGIN_GEOMETRY', center='MEDIAN')
 
                 # Move mesh to scene collection and delete the temp.svg collection. Then rename mesh.
                 temp_svg_collection = active_obj.users_collection[0]
@@ -330,11 +328,12 @@ def import_latex(self, context, latex_code, custom_latex_path,
                 context.view_layer.objects.active = active_obj
 
                 # Adjust scale, location, and rotation.
-                bpy.ops.object.origin_set(type='ORIGIN_CENTER_OF_MASS', center='MEDIAN')
+                bpy.ops.object.origin_set(type='ORIGIN_GEOMETRY', center='MEDIAN')
                 active_obj.scale = (21.165*text_scale, 21.165*text_scale, 21.165*text_scale)
                 active_obj.location = (x_loc, y_loc, z_loc)
                 active_obj.rotation_euler = (math.radians(x_rot-90), math.radians(y_rot), math.radians(z_rot))
                 bpy.ops.object.transform_apply(location = True, scale = True, rotation = True)
+                bpy.ops.object.origin_set(type='ORIGIN_GEOMETRY', center='MEDIAN')
 
                 # Moves to scene collection, fixes name.
                 move_object_to_scene_collection(active_obj, context)
@@ -366,7 +365,7 @@ def import_latex(self, context, latex_code, custom_latex_path,
 class LATEX2BLENDER_MT_Presets(Menu):
     bl_idname = 'LATEX2BLENDER_MT_Presets'
     bl_label = 'Presets'
-    preset_subdir = __package__ + '_presets'
+    preset_subdir = os.path.join(__package__, 'latex2blender_presets')
     preset_operator = 'script.execute_preset'
     draw = Menu.draw_preset
 
@@ -396,7 +395,7 @@ class OBJECT_OT_add_latex_preset(AddPresetBase, Operator):
         't.preamble_path'
     ]
 
-    preset_subdir = __package__ + '_presets'
+    preset_subdir = os.path.join(__package__, 'latex2blender_presets')
 
 # Display into an existing panel
 def panel_func(self, context):
@@ -561,9 +560,11 @@ classes = (
     OBJECT_PT_latex2blender_panel
 )
 
-def _get_presets_dir():
-    return bpy.utils.extension_path_user(__package__, path="presets", create=True)
+# Get path of blender scripts directory.
+scripts_dir = bpy.utils.user_resource('SCRIPTS')
 
+# Get path of latex2blender_preset directory
+l2b_presets = os.path.join(scripts_dir, 'presets', __package__, 'latex2blender_presets')
 
 def register():
     from bpy.utils import register_class
@@ -573,8 +574,8 @@ def register():
     OBJECT_PT_latex2blender_panel.prepend(panel_func)
 
     # Create latex2blender_presets folder if not already created.
-    _get_presets_dir()
-
+    if not os.path.isdir(l2b_presets):
+        os.makedirs(l2b_presets)
 
 def unregister():
     from bpy.utils import unregister_class
