@@ -16,8 +16,6 @@ from bpy.types import (Panel,
 
 from bl_operators.presets import AddPresetBase
 
-from bl_ui.utils import PresetPanel
-
 import os
 import glob
 import subprocess
@@ -148,17 +146,31 @@ class Settings(PropertyGroup):
         default=0.0,
     )
 
-    custom_material_bool: BoolProperty(
-        name="Use Custom Material",
-        description="Use a custom material. Note that mesh materials and grease pencil materials are different and the right type has to be used depending on how you compile your object.",
+    custom_mesh_material_bool: BoolProperty(
+        name="Use Custom Mesh Material",
+        description="Use a custom mesh material",
         default=False
     )
 
-    custom_material_value: PointerProperty(
+    custom_mesh_material: PointerProperty(
         type=Material,
-        name="Material",
-        description="Choose a material"
+        name="",
+        description="Choose a mesh material",
+        poll=lambda self, material: not material.is_grease_pencil
     )
+
+    custom_gp_material_bool: BoolProperty(
+            name="Use Custom Grease Pencil Material",
+            description="Use a custom Grease Pencil material",
+            default=False
+        )
+
+    custom_gp_material: PointerProperty(
+            type=Material,
+            name="",
+            description="Choose a Grease Pencil material",
+            poll=lambda self, material: material.is_grease_pencil
+        )
 
     custom_preamble_bool: BoolProperty(
         name="Use Custom Preamble",
@@ -194,7 +206,8 @@ def import_latex(self, context, latex_code, custom_latex_path,
                  custom_pdflatex_path, custom_xelatex_path, custom_lualatex_path,
                  custom_dvisvgm_path, command_selection, text_scale, x_loc,
                  y_loc, z_loc, x_rot,y_rot, z_rot, custom_preamble_bool,
-                 temp_dir, custom_material_bool, custom_material_value,
+                 temp_dir, custom_mesh_material_bool, custom_mesh_material,
+                 custom_gp_material_bool, custom_gp_material,
                  compile_mode, preamble_path=None):
 
     # Set current directory to temp_directory
@@ -287,18 +300,23 @@ def import_latex(self, context, latex_code, custom_latex_path,
                 bpy.ops.object.join()
 
                 # Adjust scale, location, and rotation.
-                bpy.ops.object.origin_set(type='ORIGIN_CENTER_OF_MASS', center='MEDIAN')
+                bpy.ops.object.origin_set(type='ORIGIN_GEOMETRY', center='MEDIAN')
                 active_obj.scale = (600*text_scale, 600*text_scale, 600*text_scale)
                 active_obj.location = (x_loc, y_loc, z_loc)
                 active_obj.rotation_euler = (math.radians(x_rot), math.radians(y_rot), math.radians(z_rot))
                 bpy.ops.object.transform_apply(location = True, scale = True, rotation = True)
-
+                bpy.ops.object.origin_set(type='ORIGIN_GEOMETRY', center='MEDIAN')
 
                 # Move mesh to scene collection and delete the temp.svg collection. Then rename mesh.
                 temp_svg_collection = active_obj.users_collection[0]
                 move_object_to_scene_collection(active_obj, context)
                 bpy.data.collections.remove(temp_svg_collection)
                 active_obj.name = 'LaTeX Figure'
+
+                if custom_mesh_material_bool:
+                    bpy.ops.object.material_slot_remove_all()
+                    bpy.ops.object.material_slot_add()
+                    active_obj.material_slots[0].material = custom_mesh_material
 
             if compile_mode == "grease pencil":
                 bpy.ops.wm.grease_pencil_import_svg(filepath=svg_file_path, resolution=50)
@@ -307,19 +325,27 @@ def import_latex(self, context, latex_code, custom_latex_path,
                         active_obj = x
                         break
 
+                context.view_layer.objects.active = active_obj
+
                 # Adjust scale, location, and rotation.
-                bpy.ops.object.origin_set(type='ORIGIN_CENTER_OF_MASS', center='MEDIAN')
+                bpy.ops.object.origin_set(type='ORIGIN_GEOMETRY', center='MEDIAN')
                 active_obj.scale = (21.165*text_scale, 21.165*text_scale, 21.165*text_scale)
                 active_obj.location = (x_loc, y_loc, z_loc)
                 active_obj.rotation_euler = (math.radians(x_rot-90), math.radians(y_rot), math.radians(z_rot))
                 bpy.ops.object.transform_apply(location = True, scale = True, rotation = True)
+                bpy.ops.object.origin_set(type='ORIGIN_GEOMETRY', center='MEDIAN')
 
                 # Moves to scene collection, fixes name.
                 move_object_to_scene_collection(active_obj, context)
                 active_obj.name = "LaTeX Figure"
 
-            if custom_material_bool:
-                active_obj.material_slots[0].material = custom_material_value
+                if custom_gp_material_bool:
+                    bpy.ops.grease_pencil.vertexmode_toggle()
+                    bpy.ops.grease_pencil.stroke_reset_vertex_color()
+                    bpy.ops.grease_pencil.vertexmode_toggle()
+                    bpy.ops.object.material_slot_remove_all()
+                    bpy.ops.object.material_slot_add()
+                    active_obj.material_slots[0].material = custom_gp_material
 
             # Create custom property that stores typed LaTeX code
             bpy.context.selected_objects[0]["Original LaTeX Code"] = latex_code
@@ -339,7 +365,7 @@ def import_latex(self, context, latex_code, custom_latex_path,
 class LATEX2BLENDER_MT_Presets(Menu):
     bl_idname = 'LATEX2BLENDER_MT_Presets'
     bl_label = 'Presets'
-    preset_subdir = __package__ + '_presets'
+    preset_subdir = os.path.join(__package__, 'latex2blender_presets')
     preset_operator = 'script.execute_preset'
     draw = Menu.draw_preset
 
@@ -369,7 +395,7 @@ class OBJECT_OT_add_latex_preset(AddPresetBase, Operator):
         't.preamble_path'
     ]
 
-    preset_subdir = __package__ + '_presets'
+    preset_subdir = os.path.join(__package__, 'latex2blender_presets')
 
 # Display into an existing panel
 def panel_func(self, context):
@@ -392,8 +418,10 @@ class WM_OT_compile_as_mesh(Operator):
                 and t.preamble_path == '':
             ErrorMessageBox("No LaTeX code has been entered and no preamble file has been chosen. Please enter some "
                             "LaTeX code and choose a .tex file for the preamble", "Multiple Errors")
-        elif t.custom_material_bool and t.custom_material_value is None:
-            ErrorMessageBox("No material has been chosen. Please choose a material.", "Custom Material Error")
+        elif t.custom_mesh_material_bool and t.custom_mesh_material is None:
+            ErrorMessageBox("No mesh material has been chosen. Please choose a" \
+            " mesh material or uncheck the use custom mesh material box.",
+            "Custom Mesh Material Error")
         elif t.latex_code == '':
             ErrorMessageBox("No LaTeX code has been entered. Please enter some LaTeX code.", "LaTeX Code Error")
         elif t.custom_preamble_bool and t.preamble_path == '':
@@ -406,7 +434,8 @@ class WM_OT_compile_as_mesh(Operator):
                              t.command_selection, t.text_scale, t.x_loc,
                              t.y_loc, t.z_loc, t.x_rot, t.y_rot, t.z_rot,
                              t.custom_preamble_bool, temp_dir,
-                             t.custom_material_bool, t.custom_material_value,
+                             t.custom_mesh_material_bool, t.custom_mesh_material,
+                             t.custom_gp_material_bool, t.custom_gp_material,
                              'mesh', t.preamble_path)
         return {'FINISHED'}
 
@@ -422,8 +451,10 @@ class WM_OT_compile_as_grease_pencil(Operator):
                 and t.preamble_path == '':
             ErrorMessageBox("No LaTeX code has been entered and no preamble file has been chosen. Please enter some "
                             "LaTeX code and choose a .tex file for the preamble", "Multiple Errors")
-        elif t.custom_material_bool and t.custom_material_value is None:
-            ErrorMessageBox("No material has been chosen. Please choose a material.", "Custom Material Error")
+        elif t.custom_gp_material_bool and t.custom_gp_material is None:
+            ErrorMessageBox("No Grease Pencil material has been chosen. Please" \
+            " choose a Grease Pencil material or uncheck the use custom Grease" \
+            " Pencil box.", "Custom Grease Pencil Material Error")
         elif t.latex_code == '':
             ErrorMessageBox("No LaTeX code has been entered. Please enter some LaTeX code.", "LaTeX Code Error")
         elif t.custom_preamble_bool and t.preamble_path == '':
@@ -436,7 +467,8 @@ class WM_OT_compile_as_grease_pencil(Operator):
                              t.command_selection, t.text_scale, t.x_loc,
                              t.y_loc, t.z_loc, t.x_rot, t.y_rot, t.z_rot,
                              t.custom_preamble_bool, temp_dir,
-                             t.custom_material_bool, t.custom_material_value,
+                             t.custom_mesh_material_bool, t.custom_mesh_material,
+                             t.custom_gp_material_bool, t.custom_gp_material,
                              'grease pencil', t.preamble_path)
         return {'FINISHED'}
 
@@ -497,17 +529,27 @@ class OBJECT_PT_latex2blender_panel(Panel):
         if latex2blender_tool.custom_preamble_bool:
             layout.prop(latex2blender_tool, "preamble_path")
 
-        layout.prop(latex2blender_tool, "custom_material_bool")
-        if latex2blender_tool.custom_material_bool:
-            layout.prop(latex2blender_tool, "custom_material_value")
-
         layout.separator()
 
         box = layout.box()
         row = box.row()
         row.operator("wm.compile_as_mesh")
         row = box.row()
+        row.prop(latex2blender_tool, "custom_mesh_material_bool")
+        if latex2blender_tool.custom_mesh_material_bool:
+            row = box.row()
+            row.prop(latex2blender_tool, "custom_mesh_material")
+
+        layout.separator()
+
+        box = layout.box()
+        row = box.row()
         row.operator("wm.compile_as_grease_pencil")
+        row = box.row()
+        row.prop(latex2blender_tool, "custom_gp_material_bool")
+        if latex2blender_tool.custom_gp_material_bool:
+            row = box.row()
+            row.prop(latex2blender_tool, "custom_gp_material")
 
 classes = (
     Settings,
@@ -518,9 +560,11 @@ classes = (
     OBJECT_PT_latex2blender_panel
 )
 
-def _get_presets_dir():
-    return bpy.utils.extension_path_user(__package__, path="presets", create=True)
+# Get path of blender scripts directory.
+scripts_dir = bpy.utils.user_resource('SCRIPTS')
 
+# Get path of latex2blender_preset directory
+l2b_presets = os.path.join(scripts_dir, 'presets', __package__, 'latex2blender_presets')
 
 def register():
     from bpy.utils import register_class
@@ -530,8 +574,8 @@ def register():
     OBJECT_PT_latex2blender_panel.prepend(panel_func)
 
     # Create latex2blender_presets folder if not already created.
-    _get_presets_dir()
-
+    if not os.path.isdir(l2b_presets):
+        os.makedirs(l2b_presets)
 
 def unregister():
     from bpy.utils import unregister_class
